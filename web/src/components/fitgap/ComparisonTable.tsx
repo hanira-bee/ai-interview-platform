@@ -47,8 +47,8 @@ export default function ComparisonTable({ comparisons }: ComparisonTableProps) {
               <tr key={i} className="border-b last:border-0">
                 <td className="px-4 py-2.5">{c.skill_label}</td>
                 <td className="px-4 py-2.5 text-center text-muted-foreground">
-                  {c.expected_level != null && c.expected_level >= 1 && c.expected_level <= 5
-                    ? LEVEL_LABELS[c.expected_level]
+                  {c.required_level != null && c.required_level >= 1 && c.required_level <= 5
+                    ? LEVEL_LABELS[c.required_level]
                     : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-center">
