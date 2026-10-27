@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import StateView from "@/components/StateView";
 import { assessmentsApi } from "@/services/assessments";
 import { Plus, Clock, ChevronRight } from "lucide-react";
 import type { Assessment } from "@/types";
@@ -30,16 +31,25 @@ function SessionSummary({ session }: { session?: Assessment["latest_session"] })
 export default function AssessmentListPage() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    assessmentsApi
-      .list()
-      .then((res) => setAssessments(res.data.assessments))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+  const loadAssessments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await assessmentsApi.list();
+      setAssessments(res.data.assessments);
+    } catch {
+      setError("Failed to load assessments.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadAssessments();
+  }, [loadAssessments]);
 
   return (
     <div className="space-y-4">
@@ -50,24 +60,25 @@ export default function AssessmentListPage() {
         </Button>
       </div>
 
-      {error && (
-        <div className="border border-destructive/40 rounded-lg p-4 text-sm text-destructive">
-          Failed to load assessments. Please refresh the page.
-        </div>
-      )}
-
-      {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-        </div>
-      ) : assessments.length === 0 ? (
-        <div className="border rounded-lg p-12 text-center text-sm text-muted-foreground">
-          <p className="mb-3">No assessments yet.</p>
-          <Button variant="outline" onClick={() => navigate("/assessments/new")}>
-            <Plus className="h-4 w-4 mr-1.5" /> Create your first assessment
-          </Button>
-        </div>
-      ) : (
+      <StateView
+        loading={loading}
+        error={error}
+        onRetry={() => void loadAssessments()}
+        empty={assessments.length === 0}
+        loadingContent={
+          <div className="space-y-2" aria-label="Loading">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        }
+        emptyContent={
+          <div className="text-sm text-muted-foreground">
+            <p className="mb-3">No assessments yet.</p>
+            <Button variant="outline" onClick={() => navigate("/assessments/new")}>
+              <Plus className="h-4 w-4 mr-1.5" /> Create your first assessment
+            </Button>
+          </div>
+        }
+      >
         <div className="space-y-2">
           {assessments.map((a) => (
             <Card
@@ -96,7 +107,7 @@ export default function AssessmentListPage() {
             </Card>
           ))}
         </div>
-      )}
+      </StateView>
     </div>
   );
 }
