@@ -286,7 +286,7 @@ export default function AssessmentInvitePage() {
             <Label htmlFor="candidate-name">Candidate name</Label>
             <Input
               id="candidate-name"
-              placeholder="e.g. Candidate 4"
+              placeholder="e.g. Budi Santoso"
               value={candidateNameInput}
               onChange={(e) => setCandidateNameInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleInviteCandidate()}
