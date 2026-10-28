@@ -1,7 +1,7 @@
 import { useAtomValue } from "jotai";
 import { Navigate, Outlet } from "react-router-dom";
 import { authAtom } from "@/stores/authAtom";
-import { isFitGapDemoEnabled } from "@/mocks/fitGapDemoAdapter";
+import { isFitGapDemoEnabled } from "@/lib/demoMode";
 
 export default function ProtectedRoute() {
   const { token } = useAtomValue(authAtom);

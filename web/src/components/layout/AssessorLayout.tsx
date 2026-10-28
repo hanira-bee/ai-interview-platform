@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LayoutDashboard, ClipboardList, Briefcase, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
-import { isFitGapDemoEnabled } from "@/mocks/fitGapDemoAdapter";
+import { isFitGapDemoEnabled } from "@/lib/demoMode";
 
 const navItems = [
   { href: "/assessments", label: "Assessments", icon: ClipboardList },

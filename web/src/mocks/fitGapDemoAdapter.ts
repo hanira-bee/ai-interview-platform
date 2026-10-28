@@ -8,14 +8,6 @@ import {
   demoVacancies,
 } from "@/mocks/fitGapDemoData";
 
-const fitGapDemoEnabled = import.meta.env.DEV
-  && typeof window !== "undefined"
-  && new URLSearchParams(window.location.search).get("demo") === "fitgap";
-
-export function isFitGapDemoEnabled() {
-  return fitGapDemoEnabled;
-}
-
 function response(config: Parameters<AxiosAdapter>[0], data: unknown, status = 200): AxiosResponse {
   const statusText = status === 201 ? "Created" : status === 404 ? "Not Found" : "OK";
   return {
