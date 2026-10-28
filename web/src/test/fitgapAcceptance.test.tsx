@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AssessmentListPage from "@/pages/assessments/AssessmentListPage";
+import AssessmentInvitePage from "@/pages/assessments/AssessmentInvitePage";
 import VacancyListPage from "@/pages/vacancies/VacancyListPage";
 import PortfolioPage from "@/pages/portfolio/PortfolioPage";
 import FitGapReportPage from "@/pages/fitgap/FitGapReportPage";
@@ -94,6 +95,12 @@ describe("assessment and vacancy result acceptance criteria", () => {
   beforeEach(() => {
     vi.mocked(assessmentsApi.list).mockResolvedValue({
       data: { assessments: [], meta: {} },
+    } as never);
+    vi.mocked(assessmentsApi.get).mockResolvedValue({
+      data: { assessment: { id: 11, name: "Demo assessment", time_limit_min: 45, skills: [] } },
+    } as never);
+    vi.mocked(assessmentsApi.getSessions).mockResolvedValue({
+      data: { sessions: [] },
     } as never);
     vi.mocked(vacanciesApi.list).mockResolvedValue({
       data: { vacancies: [], meta: {} },
@@ -284,6 +291,35 @@ describe("assessment and vacancy result acceptance criteria", () => {
       emptyState: "No fit/gap report available.",
       retryCallCount: () => vi.mocked(portfoliosApi.getFitGap).mock.calls.length,
     });
+  });
+
+  it("retries portfolio loading from the Fit/Gap page after its initial request fails", async () => {
+    vi.mocked(sessionsApi.getPortfolio).mockRejectedValueOnce(new Error("portfolio unavailable"));
+    renderFitGapPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Failed to load portfolio/i);
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    await waitFor(() => expect(sessionsApi.getPortfolio).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(portfoliosApi.getFitGap).toHaveBeenCalledTimes(1));
+  });
+
+  it("shows an assessment detail error instead of an empty candidate state and can retry", async () => {
+    vi.mocked(assessmentsApi.get).mockRejectedValueOnce(new Error("assessment unavailable"));
+    render(
+      <MemoryRouter initialEntries={["/assessments/11/invite"]}>
+        <Routes>
+          <Route path="/assessments/:id/invite" element={<AssessmentInvitePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Failed to load assessment and candidates/i);
+    expect(screen.queryByText("No candidates yet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    await waitFor(() => expect(assessmentsApi.get).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("No candidates yet")).toBeInTheDocument();
   });
 
   it("shows empty states only after successful empty list responses", async () => {
