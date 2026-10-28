@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getStoredToken, clearToken } from "@/stores/authAtom";
+import { fitGapDemoAdapter, isFitGapDemoEnabled } from "@/mocks/fitGapDemoAdapter";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? "ws://localhost:3000";
@@ -12,6 +13,10 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  if (isFitGapDemoEnabled()) {
+    config.adapter = fitGapDemoAdapter;
+    return config;
+  }
   const token = getStoredToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
