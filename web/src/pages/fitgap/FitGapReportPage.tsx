@@ -27,6 +27,8 @@ export default function FitGapReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"pdf" | "json" | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [failedAction, setFailedAction] = useState<"regenerate" | "pdf" | "json" | null>(null);
 
   const fetchReport = useCallback(async () => {
     if (!portfolio) return;
@@ -55,28 +57,44 @@ export default function FitGapReportPage() {
   }, [portfolio, vacancyId]);
 
   const retryReport = async () => {
+    setError(null);
+    if (!portfolio) {
+      setLoading(true);
+      setReportLoading(true);
+      await loadPortfolio();
+      return;
+    }
     setReportLoading(true);
     await fetchReport();
   };
 
-  useEffect(() => {
-    sessionsApi
-      .getPortfolio(Number(sessionId))
-      .then(async (res) => {
-        const data = res.data as any;
-        if (data.portfolio) {
-          setPortfolio(data.portfolio);
-        } else if (data.status === "generating") {
-          setGenerating(true);
-          setReportLoading(false);
-        }
-      })
-      .catch(() => {
-        setError("Failed to load portfolio.");
-        setReportLoading(false);
-      })
-      .finally(() => setLoading(false));
+  const loadPortfolio = useCallback(async () => {
+    let hasPortfolio = false;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await sessionsApi.getPortfolio(Number(sessionId));
+      const data = res.data as { portfolio?: Portfolio; status?: string };
+      if (data.portfolio) {
+        hasPortfolio = true;
+        setPortfolio(data.portfolio);
+        setGenerating(data.portfolio.generation_status === "generating" || data.portfolio.generation_status === "pending");
+      } else if (data.status === "generating") {
+        setGenerating(true);
+      } else {
+        setError("No portfolio is available for this session.");
+      }
+    } catch {
+      setError("Failed to load portfolio.");
+    } finally {
+      setLoading(false);
+      if (!hasPortfolio) setReportLoading(false);
+    }
   }, [sessionId]);
+
+  useEffect(() => {
+    void loadPortfolio();
+  }, [loadPortfolio]);
 
   useEffect(() => {
     if (portfolio) fetchReport();
@@ -87,10 +105,15 @@ export default function FitGapReportPage() {
   const handleRegenerate = async () => {
     if (!portfolio) return;
     setRegenerating(true);
+    setActionError(null);
     try {
       await portfoliosApi.regenerateFitGap(portfolio.id, Number(vacancyId));
       setReport(null);
       setGenerating(true);
+      setFailedAction(null);
+    } catch {
+      setActionError("Failed to regenerate the fit/gap report.");
+      setFailedAction("regenerate");
     } finally {
       setRegenerating(false);
     }
@@ -99,6 +122,7 @@ export default function FitGapReportPage() {
   const handleExport = async (format: "pdf" | "json") => {
     if (!portfolio) return;
     setExporting(format);
+    setActionError(null);
     try {
       const res = await portfoliosApi.exportPortfolio(portfolio.id, format, Number(vacancyId));
       const ext = format;
@@ -111,40 +135,49 @@ export default function FitGapReportPage() {
       a.download = `fitgap-${sessionId}-${vacancyId}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
+      setFailedAction(null);
+    } catch {
+      setActionError(`Failed to export the ${format.toUpperCase()} report.`);
+      setFailedAction(format);
     } finally {
       setExporting(null);
     }
+  };
+
+  const retryAction = () => {
+    if (failedAction === "regenerate") void handleRegenerate();
+    else if (failedAction) void handleExport(failedAction);
   };
 
   return (
     <div className="max-w-2xl mx-auto min-w-0 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between min-w-0">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
             <Link
               to={`/assessments/${id}/sessions/${sessionId}/portfolio`}
-              className="text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <h1 className="text-lg font-semibold">Fit/Gap Report</h1>
+            <h1 className="truncate text-lg font-semibold">Fit/Gap Report</h1>
           </div>
         </div>
 
         {portfolio && (
-          <div className="flex flex-wrap gap-2 min-w-0">
-            <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerating || generating}>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="min-h-10 w-full sm:min-h-8 sm:w-auto" variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerating || generating}>
               {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
               Regenerate
             </Button>
             {report && (
               <>
-                <Button variant="outline" size="sm" onClick={() => handleExport("pdf")} disabled={!!exporting}>
+                <Button className="min-h-10 w-full sm:min-h-8 sm:w-auto" variant="outline" size="sm" onClick={() => handleExport("pdf")} disabled={!!exporting}>
                   {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
                   PDF
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleExport("json")} disabled={!!exporting}>
+                <Button className="min-h-10 w-full sm:min-h-8 sm:w-auto" variant="outline" size="sm" onClick={() => handleExport("json")} disabled={!!exporting}>
                   {exporting === "json" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
                   JSON
                 </Button>
@@ -153,6 +186,13 @@ export default function FitGapReportPage() {
           </div>
         )}
       </div>
+
+      {actionError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+          <span>{actionError}</span>
+          <Button className="min-h-10 sm:min-h-8" variant="outline" size="sm" onClick={retryAction}>Retry</Button>
+        </div>
+      )}
 
       <StateView
         loading={loading || reportLoading}
@@ -185,7 +225,7 @@ export default function FitGapReportPage() {
                   <CardTitle className="text-sm">Skill Comparison</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
-                  <ComparisonTable comparisons={report.skill_comparisons} />
+                  <ComparisonTable comparisons={Array.isArray(report.skill_comparisons) ? report.skill_comparisons : []} />
                 </CardContent>
               </Card>
 
@@ -197,7 +237,7 @@ export default function FitGapReportPage() {
                   <CardTitle className="text-sm">Culture &amp; Competency Fit</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
-                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                  <p className="break-words text-sm leading-relaxed text-foreground whitespace-pre-wrap">
                     {report.culture_narrative || report.overall_narrative}
                   </p>
                 </CardContent>
@@ -218,12 +258,12 @@ export default function FitGapReportPage() {
                       {portfolio.skills
                         .filter((s) => s.is_discovered)
                         .map((s) => (
-                          <div key={s.id} className="text-sm flex items-center gap-2">
-                            <span className="font-medium">{s.skill_label}</span>
-                            <span className="text-muted-foreground">
+                          <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                            <span className="min-w-0 truncate font-medium">{s.skill_label}</span>
+                            <span className="min-w-0 truncate text-muted-foreground">
                               {s.ai_level} ({s.ai_confidence?.toLowerCase() === "low" ? "low confidence" : "confirmed"})
                             </span>
-                            <span className="text-xs text-muted-foreground">— Not required for this role, may be additive.</span>
+                            <span className="min-w-0 truncate text-xs text-muted-foreground">— Not required for this role, may be additive.</span>
                           </div>
                         ))}
                     </CardContent>

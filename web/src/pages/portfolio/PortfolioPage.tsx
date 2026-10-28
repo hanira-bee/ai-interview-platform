@@ -25,6 +25,8 @@ export default function PortfolioPage() {
   const [selectedVacancy, setSelectedVacancy] = useState<string>("");
   const [exporting, setExporting] = useState<"pdf" | "json" | null>(null);
   const [candidateName, setCandidateName] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [failedExport, setFailedExport] = useState<"pdf" | "json" | null>(null);
 
   const fetchPortfolio = useCallback(async () => {
     const res = await sessionsApi.getPortfolio(Number(sessionId));
@@ -90,6 +92,7 @@ export default function PortfolioPage() {
   const handleExport = async (format: "pdf" | "json") => {
     if (!portfolio) return;
     setExporting(format);
+    setExportError(null);
     try {
       const res = await portfoliosApi.exportPortfolio(
         portfolio.id,
@@ -113,6 +116,10 @@ export default function PortfolioPage() {
         a.click();
         URL.revokeObjectURL(url);
       }
+      setFailedExport(null);
+    } catch {
+      setExportError(`Failed to export the ${format.toUpperCase()} portfolio.`);
+      setFailedExport(format);
     } finally {
       setExporting(null);
     }
@@ -122,22 +129,22 @@ export default function PortfolioPage() {
     <div className="max-w-2xl mx-auto min-w-0 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between min-w-0">
-        <div className="flex items-center gap-2">
-          <Link to={`/assessments/${id}/invite`} className="text-muted-foreground hover:text-foreground">
+        <div className="flex min-w-0 items-center gap-2">
+          <Link to={`/assessments/${id}/invite`} className="shrink-0 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-lg font-semibold">Portfolio Results</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold">Portfolio Results</h1>
             {candidateName && (
-              <p className="text-sm text-muted-foreground">{candidateName}</p>
+              <p className="truncate text-sm text-muted-foreground">{candidateName}</p>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 min-w-0">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Link
             to={`/assessments/${id}/sessions/${sessionId}/transcript`}
-            className="inline-flex items-center gap-1 text-sm border rounded-md px-3 py-1.5 hover:bg-accent transition-colors"
+            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-accent"
           >
             <FileText className="h-3.5 w-3.5" />
             Transcript
@@ -147,6 +154,7 @@ export default function PortfolioPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => handleExport("pdf")}
                 disabled={!!exporting}
               >
@@ -156,6 +164,7 @@ export default function PortfolioPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => handleExport("json")}
                 disabled={!!exporting}
               >
@@ -166,6 +175,20 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      {exportError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+          <span>{exportError}</span>
+          <Button
+            className="min-h-10 sm:min-h-8"
+            variant="outline"
+            size="sm"
+            onClick={() => failedExport && void handleExport(failedExport)}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       <StateView
         loading={loading}
@@ -261,9 +284,9 @@ export default function PortfolioPage() {
               <Separator />
 
               {/* Fit/Gap */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center min-w-0">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
                 <Select value={selectedVacancy} onValueChange={setSelectedVacancy}>
-                  <SelectTrigger className="w-full sm:w-56">
+                  <SelectTrigger className="w-full min-w-0 sm:w-56">
                     <SelectValue placeholder="Choose vacancy..." />
                   </SelectTrigger>
                   <SelectContent>
