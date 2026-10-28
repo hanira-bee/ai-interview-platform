@@ -121,7 +121,7 @@ export interface VacancySkill {
   id?: number;
   skill_id?: number;
   skill_label: string;
-  expected_level: number;
+  expected_level: number | null;
   _destroy?: boolean;
 }
 
@@ -129,11 +129,13 @@ export type SkillComparisonResult = "match" | "gap" | "exceed" | "not_assessed";
 
 export interface SkillComparison {
   skill_label: string;
+  skill_id?: string | number;
   expected_level: number | null;
   candidate_level?: number | null;
   result: SkillComparisonResult;
   delta?: number | null;
   overridden?: boolean;
+  confidence?: string | null;
 }
 
 export interface FitGapReport {
